@@ -1,23 +1,16 @@
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+const { fileToArray } = require('../fileToArray');
+const dir = __dirname;
 
-const inputPath = path.format({ dir: __dirname, base: 'input' });
-const reader = readline.createInterface(fs.createReadStream(inputPath));
-
-const lines = [];
-reader.on('line', line => lines.push(+line));
-
-reader.on('close', () => {
+fileToArray(dir, 'input').then(lines => {
     const firstResult = calculateFirstTask(lines);
     console.log('first result: ', firstResult);
 
     const secondResult = calculateSecondTask(lines);
     console.log('second result: ', secondResult);
-})
+});
 
 function calculateFirstTask(lines) {
-    return lines.reduce((res, line) => res += line);
+    return lines.reduce((res, line) => res += +line, 0);
 }
 
 function calculateSecondTask(lines) {
@@ -29,7 +22,7 @@ function calculateSecondTask(lines) {
     let repeat = 0;
     while(!found) {
         for (line of lines) {
-            currentFreq = currentFreq + line;
+            currentFreq = currentFreq + +line;
 
             if (frequenciesSet.has(currentFreq)) {
                 found = true;
