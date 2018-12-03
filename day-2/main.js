@@ -25,9 +25,14 @@ function calculateFirstTask(input) {
 }
 
 function calculateSecondTask(input) {
+    const ids = findTwoCloseIds(input);
+    const position = getDifferentLetterPosition(ids.first, ids.second);
 
+    const result = ids.first.substring(0, position) + ids.first.substring(position + 1);
+    return result;
 }
 
+// task 1 helpers
 function countLetters(word) {
     const result = {};
     word.split('').forEach(letter => {
@@ -47,4 +52,35 @@ function hasTwoOrThreeSameLetters(letters) {
     });
 
     return res;
+}
+
+// task 2 helpers
+function findTwoCloseIds(ids) {
+    for (let i = 0; i < ids.length - 1; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+            const count = getDifferentLettersCount(ids[i], ids[j]);
+            if (count === 1) {
+                return {
+                    first: ids[i],
+                    second: ids[j],
+                };
+            }
+        }
+    }
+}
+
+function getDifferentLettersCount(id1, id2) {
+    let count = 0;
+    for (let i = 0; i < id1.length; i++) {
+        if (id1[i] !== id2[i]) count++;
+
+        if (count > 1) break;
+    }
+    return count;
+}
+
+function getDifferentLetterPosition(id1, id2) {
+    for (let i = 0; i < id1.length; i++) {
+        if (id1[i] !== id2[i]) return i;
+    }
 }
