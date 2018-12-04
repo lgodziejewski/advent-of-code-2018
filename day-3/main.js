@@ -7,7 +7,7 @@ fileToArray(dir, 'input').then(input => {
     const firstResult = calculateFirstTask(parsedInput);
     console.log('first result: ', firstResult);
 
-    const secondResult = calculateSecondTask(input);
+    const secondResult = calculateSecondTask(parsedInput);
     console.log('second result: ', secondResult);
 });
 
@@ -46,6 +46,25 @@ function calculateFirstTask(input) {
     return count;
 }
 
+// find the one claim that doesn't overlap
+function calculateSecondTask(input) {
+    const canvas = prepareCanvas(canvasSize);
+
+    // apply each claim
+    input.forEach(claim => {
+        applyClaim(canvas, claim);
+    })
+
+    // find non-overlapping claim:
+    const pure = [];
+    input.forEach(claim => {
+        const res = checkClaim(canvas, claim);
+        if (res) pure.push(claim);
+    });
+    
+    return pure[0].id;
+}
+
 // first task helpers
 function prepareCanvas(size) {
     res = [];
@@ -64,6 +83,12 @@ function applyClaim(canvas, claim) {
     }
 }
 
-function calculateSecondTask() {
+function checkClaim(canvas, claim) {
+    for (let i = 0; i < claim.width; i++) {
+        for (let j = 0; j < claim.height; j++) {
+            if (canvas[claim.x + i][claim.y + j] > 1) return false;
+        }
+    }
 
+    return true;
 }
