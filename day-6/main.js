@@ -68,9 +68,9 @@ function parseInput(input) {
     return { points, imageSize: { height: y + 1, width: x + 1 }};
 }
 
-function createBlankImage({ width, height }) {
+function createBlankImage({ width, height }, color = rgba(255, 255, 255)) {
     const image = PNGImage.createImage(width, height);
-    image.fillRect(0, 0, width - 1, height - 1, rgba(255, 255, 255));
+    image.fillRect(0, 0, width - 1, height - 1, color);
 
     return image;
 }
@@ -169,7 +169,28 @@ function calculateFirstTask(parsedInput, imageSize) {
     return filteredAreas;
 }
 
-function calculateSecondTask() {
-    const totalDistance = 10000;
+function calculateSecondTask(parsedInput, imageSize) {
+    const maxTotalDistance = 10000;
+    // console.log(parsedInput);
+    const image = createBlankImage(imageSize, rgba(150, 150, 150));
 
+    // iterate over each pixel and mark "safe area" (totalDistance < maxTotalDistance)
+    const safePixels = [];
+    for (let x = 0; x < imageSize.width; x++) {
+        for (let y = 0; y < imageSize.height; y++) {
+            const curr = { x, y };
+            const totalDistance = parsedInput.reduce((acc, point) => {                
+                return acc + Math.abs(point.x - curr.x) + Math.abs(point.y - curr.y);
+            }, 0);
+
+            if (totalDistance < maxTotalDistance) {
+                image.setAt(x, y, rgba(0, 0, 250));
+                safePixels.push(curr);
+            }
+        }
+    }
+
+    saveImage(image, 'second');
+
+    return safePixels.length;
 }
