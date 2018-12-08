@@ -55,5 +55,23 @@ function getMetadataSum(element) {
 }
 
 function calculateSecondTask(data) {
+    return getFancyMetadata(data);
+}
 
+function getFancyMetadata(element) {
+
+    let sum = 0;
+    if (element.childCount > 0) {
+        // get values of children "mentioned" in meta
+        element.meta.forEach(e => {
+            const child = element.children[e - 1];
+
+            if (child) {
+                sum += getFancyMetadata(child);
+            }
+        });
+    } else {
+        sum += element.meta.reduce((acc, e) => acc + e, 0);
+    }
+    return sum;
 }
