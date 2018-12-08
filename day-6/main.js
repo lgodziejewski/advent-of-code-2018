@@ -3,13 +3,12 @@ const { fileToArray } = require('../fileToArray');
 const dir = __dirname;
 
 fileToArray(dir, 'input').then(input => {
-    const parsedInput = parseInput(input);
+    const { points: parsedInput, imageSize } = parseInput(input);
 
-    saveImage(parsedInput, 'start');
-    const firstResult = calculateFirstTask(parsedInput);
-    console.log('first result: ', firstResult);
+    const firstResult = calculateFirstTask(parsedInput, imageSize);
+    console.log('first result: ', firstResult[0].size);
 
-    const secondResult = calculateSecondTask(parsedInput);
+    const secondResult = calculateSecondTask(parsedInput, imageSize);
     console.log('second result: ', secondResult);
 });
 
@@ -34,6 +33,7 @@ colors = [
     { r: 250, g: 50, b: 150},
     { r: 150, g: 250, b: 50},
     { r: 50, g: 150, b: 250},
+    { r: 250, g: 250, b: 50},
 ]
 
 function saveImage(image, name) {
@@ -51,7 +51,7 @@ function parseInput(input) {
             x,
             y,
         };
-    }).sort((a, b) => a.x - b.x);
+    }).sort((a, b) => a.x - b.x).map((el, id) => ({ id, ...el }));
 
     // find max y and y
     let x = 0, y = 0;
@@ -60,17 +60,17 @@ function parseInput(input) {
         if (point.y > y) y = point.y;
     });
 
-    const image = PNGImage.createImage(x, y);
-    image.fillRect(0, 0, x, y, rgba(255, 255, 255));
-
-    // add points:
+    // add points colors:
     points.forEach((point, index) => {
-        const color = colors[index % colors.length];
-        point.color = color;
-        image.setAt(point.x, point.y, rgba(color.r, color.g, color.b));
+        point.color = colors[index % colors.length];
     });
 
-    drawVoronoi(image, points);
+    return { points, imageSize: { height: y + 1, width: x + 1 }};
+}
+
+function createBlankImage({ width, height }, color = rgba(255, 255, 255)) {
+    const image = PNGImage.createImage(width, height);
+    image.fillRect(0, 0, width - 1, height - 1, color);
 
     return image;
 }
@@ -102,16 +102,31 @@ function drawVoronoi(image, points) {
                 }
             }
 
-            // checking point coords or two points equally near, do nothing
-            if (distance === 0 || nearest.length > 1) {
+            // two points equally near, do nothing
+            if (nearest.length > 1) {
 
             } else {
                 const { r, g, b } = nearest[0].color;
                 image.setAt(x, y, rgba(r, g, b));
-                helper.push({ coords: { x, y }, point: nearest[0]})   
+                helper.push({ coords: { x, y }, point: nearest[0].id})   
             }
         }
     }
+
+    /*
+    point: {
+      id,
+      coords,
+      color,
+    };
+    helper: [
+      {
+        coords: { x, y },
+        point: <id>
+      }
+    ]
+    */
+    return { pixelWithAreaId: helper, width, height };
 }
 
 function isInDistance(curr, point, targetDistance) {
@@ -121,10 +136,61 @@ function isInDistance(curr, point, targetDistance) {
 }
 
 
-function calculateFirstTask() {
+function calculateFirstTask(parsedInput, imageSize) {
+    const image = createBlankImage(imageSize);
+    const { pixelWithAreaId, width, height} = drawVoronoi(image, parsedInput);
+    // saveImage(image, 'first');
 
+    // groups pixels by points
+    const groupedByAreas = pixelWithAreaId.reduce((acc, el) => {
+        if (!acc[el.point]) acc[el.point] = [];
+
+        acc[el.point].push(el.coords);
+
+        return acc;
+    }, {});
+
+    // filter out "border" areas
+    const filteredAreaIds = Object.keys(groupedByAreas).filter(areaId => {
+        // check if area contains x: 0, y: 0, x: width or y: width points
+        const pixels = groupedByAreas[areaId];
+
+        const isBorder = pixels.some(pixel => (pixel.x === 0 || pixel.x >= width - 1 || pixel.y === 0 || pixel.y >= height - 1));
+
+        return !isBorder;
+    });
+
+    const filteredAreas = filteredAreaIds.map(areaId => ({
+        id: areaId,
+        size: groupedByAreas[areaId].length,
+    })).sort((a, b) => b.size - a.size);
+
+
+    return filteredAreas;
 }
 
-function calculateSecondTask() {
+function calculateSecondTask(parsedInput, imageSize) {
+    const maxTotalDistance = 10000;
+    // console.log(parsedInput);
+    const image = createBlankImage(imageSize, rgba(150, 150, 150));
 
+    // iterate over each pixel and mark "safe area" (totalDistance < maxTotalDistance)
+    const safePixels = [];
+    for (let x = 0; x < imageSize.width; x++) {
+        for (let y = 0; y < imageSize.height; y++) {
+            const curr = { x, y };
+            const totalDistance = parsedInput.reduce((acc, point) => {                
+                return acc + Math.abs(point.x - curr.x) + Math.abs(point.y - curr.y);
+            }, 0);
+
+            if (totalDistance < maxTotalDistance) {
+                image.setAt(x, y, rgba(0, 0, 250));
+                safePixels.push(curr);
+            }
+        }
+    }
+
+    saveImage(image, 'second');
+
+    return safePixels.length;
 }
