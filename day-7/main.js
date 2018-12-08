@@ -6,7 +6,7 @@ fileToArray(dir, 'input').then(input => {
   const parsedInput = parseInput(input);
 
   // clone input
-    const firstResult = calculateFirstTask(JSON.parse(JSON.stringify(parsedInput)));
+    const firstResult = calculateFirstTask(parsedInput);
     console.log('first result: ', firstResult);
 
     const secondResult = calculateSecondTask(parsedInput);
@@ -69,7 +69,8 @@ function calculateFirstTask(input) {
    ^--- repeat
    */
   const targetLength = input.length;
-  let currentInput = [...input];
+  // copy input
+  const currentInput = JSON.parse(JSON.stringify(input));
   const result = [];
   while (result.length < targetLength) {
     const firstLetterWithoutDepsIndex = currentInput.findIndex(entry => entry.parents.length === 0);
@@ -88,6 +89,57 @@ function calculateFirstTask(input) {
 }
 
 function calculateSecondTask(input) {
-  // console.log(input);
+  const baseStepTime = 60;
+  const letterDiff = 64;
   
+  // initialize workers
+  const WORKER_COUNT = 5;
+  const currentJobs = [];
+  for (let i = 0; i < WORKER_COUNT; i++) currentJobs.push({ letter: '', time: 0});
+
+  // copy input
+  const currentInput = JSON.parse(JSON.stringify(input));
+  const targetLength = input.length;
+
+  const result = [];
+  let globalTime = -1;
+  while (result.length < targetLength) {
+    // next "frame"
+    globalTime++;
+
+    // get "finished" workers
+    const finishedWorkers = currentJobs.filter(worker => worker.time <= globalTime);
+    for (worker of finishedWorkers) {
+
+      // skip empty letter
+      if (worker.letter !== '') {
+
+        // add letter to result
+        result.push(worker.letter);
+
+        // remove it from all pending letters parents
+        for (dependentEntry of currentInput) {
+          let parents = dependentEntry.parents.join('');
+          parents = parents.replace(worker.letter, '');
+          dependentEntry.parents = parents.split('');
+        }
+
+        worker.letter = '';
+        worker.time = 0;
+      }
+      if (currentInput.length === 0) continue;
+
+      // get first letter without deps
+      const firstLetterWithoutDepsIndex = currentInput.findIndex(entry => entry.parents.length === 0);
+      if (firstLetterWithoutDepsIndex < 0) continue;
+
+      // remove it from "backlog"
+      const currentEntry = currentInput.splice(firstLetterWithoutDepsIndex, 1)[0];
+      // assign to worker
+      worker.letter = currentEntry.letter;
+      worker.time = globalTime + baseStepTime + currentEntry.letter.charCodeAt(0) - letterDiff;
+    }
+  }
+
+  return globalTime - 1;
 }
