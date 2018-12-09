@@ -15,31 +15,42 @@ const myInput = {
     last: 71170,
 };
 
-fileToArray(dir, 'input').then(input => {
-    const parsedInput = parseInput(input);
 
-    const firstResult = calculateFirstTask(parsedInput);
+const myInputTwo = {
+    players: 411,
+    last: 7117000,
+};
+
+fileToArray(dir, 'input').then(input => {
+
+    const firstResult = calculateFirstTask(myInput);
     console.log('first result: ', firstResult);
 
-    const secondResult = calculateSecondTask(parsedInput);
+    const secondResult = calculateFirstTask(myInputTwo);
     console.log('second result: ', secondResult);
 });
 
 function parseInput(input) {
-    return myInput;
+    return myInputTwo;
 }
 
 function calculateFirstTask(data) {
-    const marbles = [0];
+    const firstElement = {
+        value: 0,
+    };
+    firstElement.next = firstElement;
+    firstElement.prev = firstElement;
+    
+    let currentMarble = firstElement;
     const magicNumber = 23;
-    let currentMarbleIndex = 0;
-    let currentMarbleValue = 1;
+    
     let currentPlayer = 1;
     const playerScores = {};
     // console.log('[-]: (0)');
 
-    while (currentMarbleValue <= data.last) {
-        if (currentMarbleValue % magicNumber === 0) {
+    for (let marbleValue = 1; marbleValue <= data.last; marbleValue++) {
+
+        if (marbleValue % magicNumber === 0) {
             /*
             - add current marble to current player score
             - remove marble 7 position to the left and add to player score
@@ -47,36 +58,40 @@ function calculateFirstTask(data) {
             */
            if (!playerScores[currentPlayer]) playerScores[currentPlayer] = 0;
 
-           playerScores[currentPlayer] += currentMarbleValue;
+           playerScores[currentPlayer] += marbleValue;
 
-           let removedMarbleIndex = currentMarbleIndex - 7;
-           while (removedMarbleIndex < 0) {
-               removedMarbleIndex = marbles.length + removedMarbleIndex;
+           
+           // set new current
+           for (let i = 0; i < 6; i++) {
+                currentMarble = currentMarble.prev;
            }
-           const [removedMarble] = marbles.splice(removedMarbleIndex, 1);
-           playerScores[currentPlayer] += removedMarble;
 
-           currentMarbleIndex = removedMarbleIndex;
+           // remove previous element
+           const removedMarble = currentMarble.prev;
+           removedMarble.prev.next = currentMarble;
+           currentMarble.prev = removedMarble.prev;
+
+           playerScores[currentPlayer] += removedMarble.value;
         } else {
             // add value two position to the right of current one
-            // if (marbles.length < )
-            let newIndex = currentMarbleIndex + 2;
-            while (newIndex > marbles.length) {
-                newIndex = newIndex - marbles.length;
-            }
-            currentMarbleIndex = newIndex;
-
-            marbles.splice(newIndex, 0, currentMarbleValue);
+            const nextElement = currentMarble.next;
+            const newElement = {
+                value: marbleValue,
+                prev: nextElement,
+                next: nextElement.next,
+            };
+            // console.log({ newElement });
+            nextElement.next.prev = newElement;
+            nextElement.next = newElement;
+            
+            currentMarble = newElement;
         }
         
-        const currentStateString = stateToString(marbles, currentMarbleIndex);
+        // const currentStateString = stateToString(firstElement, currentMarble);
         // console.log(`[${currentPlayer}]: ${currentStateString}`);
 
-        currentMarbleValue++;
         currentPlayer++;
         if (currentPlayer > data.players) currentPlayer = 1;
-
-        // if (marbles.length > 20) break;
     }
 
     // console.log('playerScores: ', playerScores);
@@ -90,18 +105,22 @@ function calculateFirstTask(data) {
     const max = scores[0].score;
 
     return max;
-    
 }
 
-function stateToString(data, currentIndex) {
+function stateToString(firstElement, current) {
     let result = [];
-    for (let i = 0; i < data.length; i++) {
-        if (i === currentIndex) {
-            result.push(`(${data[i]})`);
+    let pointer = firstElement;
+
+    do {
+        if (pointer === current) {
+            result.push(`(${pointer.value})`);
         } else {
-            result.push(data[i]);
+            result.push(pointer.value);
         }
-    }
+
+        pointer = pointer.next;
+    } while (pointer !== firstElement);
+    
     return result.join(' ');
 }
 
