@@ -1,13 +1,15 @@
 const input = 7315;
 // const input = 18;
+// const input = 42;
 
 const size = 300;
+const maxSize = 300;
 
 // test cases:
-console.log('level: ', getPowerLevel(3, 5, 8));
-console.log('level: ', getPowerLevel(122, 79, 57));
-console.log('level: ', getPowerLevel(217, 196, 39));
-console.log('level: ', getPowerLevel(101, 153, 71));
+// console.log('level: ', getPowerLevel(3, 5, 8));
+// console.log('level: ', getPowerLevel(122, 79, 57));
+// console.log('level: ', getPowerLevel(217, 196, 39));
+// console.log('level: ', getPowerLevel(101, 153, 71));
 
 main();
 
@@ -33,6 +35,7 @@ function prepareData() {
         position: { x: i + 1, y: j + 1 },
         id: i + 11,
         level,
+        value: level,
       };
     }
   }
@@ -56,17 +59,21 @@ function calculateFirstTask(data) {
     value: -1000,
   };
 
-  for (let i = 0; i < size - 2; i++) {
-    for (let j = 0; j < size - 2; j++) {
-      const value = getSquareValue(data, i, j);
-      if (value > bestResult.value) {
-        bestResult.value = value,
-        bestResult.position = {
-          x: i + 1,
-          y: j + 1,
-        };
+  for (let fieldSize = 1; fieldSize <= maxSize; fieldSize++) {
+    for (let i = 0; i < size - (fieldSize - 1); i++) {
+      for (let j = 0; j < size - (fieldSize - 1); j++) {
+        recalcSquareValue(data, i, j, fieldSize);
+        if (data[i][j].value > bestResult.value) {
+          bestResult.value = data[i][j].value,
+          bestResult.position = {
+            x: i + 1,
+            y: j + 1,
+            fieldSize,
+          };
+        }
       }
     }
+    // console.log({ fieldSize, bestResult });
   }
 
   return bestResult;
@@ -82,14 +89,24 @@ function printData(data) {
   }
 }
 
-function getSquareValue(data, x, y) {
+function recalcSquareValue(data, x, y, fieldSize) {
   let value = 0;
-  for (let i = x; i < x + 3; i++) {
-    for (let j = y; j < y + 3; j++) {
-      value += data[i][j].level;
-    }
+  const prevValue = data[x][y].value;
+  if (fieldSize === 1) return prevValue;
+
+  const tempX = x + fieldSize - 1;
+  for (let j = y; j < y + fieldSize; j++) {
+    value += data[tempX][j].level;
   }
-  return value;
+  const tempY = y + fieldSize - 1;
+  for (let i = x; i < x + fieldSize - 1; i++) {
+    value += data[i][tempY].level;
+  }
+
+  const newValue = prevValue + value;
+  // console.log({ x, y, newValue });
+  data[x][y].value = newValue;
+  return newValue;
 }
 
 function calculateSecondTask(data) {
