@@ -55,8 +55,8 @@ function calculateFirstTask(data) {
     let currentState = data.firstState;
     const rules = data.rules;
     const offset = 60;
-    const maxIteration = 20;
-    // const maxIteration = 20;
+    const maxIteration = 500;
+    let lastResult = 0;
 
     for (let iteration = 1; iteration <= maxIteration; iteration++) {
         const newState = [];
@@ -73,9 +73,11 @@ function calculateFirstTask(data) {
             }
         }
 
-        // console.log({ iteration, newState });
         currentState = newState;
+        const result = currentState.filter(el => el.char === plant).reduce((acc, el) => acc + el.id, 0);
+        console.log({ iteration, result, diff: result - lastResult });
         // console.log(currentState.map(el => el.char).join(''));
+        lastResult = result;
     }
 
     const result = currentState.filter(el => el.char === plant).reduce((acc, el) => acc + el.id, 0);
@@ -96,4 +98,15 @@ function getState(data, idx) {
 
 function calculateSecondTask(data) {
 
+    // since iteration 88 the game goes constantly, increasing result by 20 per iteration
+    // iteration 100 result -> 1374
+
+    const iter = 200;
+    const diff = 194;
+    const lastResult = 38121;
+    const maxIteration = 50000000000;
+
+    const result = (maxIteration - iter) * diff + lastResult;
+
+    return result;
 }
