@@ -9,6 +9,10 @@ const testData = {
     file: 'test',
 }
 
+const testData2 = {
+    file: 'test2',
+}
+
 const usedData = myData;
 
 const fieldType = {
@@ -91,6 +95,7 @@ function parseInput(input) {
     const result = [];
     const carts = [];
     let rowId = 0;
+    let cartId = 0;
     for (row of input) {
         const parsedRow = [];
         const chars = row.split('');
@@ -161,22 +166,26 @@ function parseInput(input) {
             // carts
             switch (char) {
                 case '<':
-                    cart = { position, orientation: 'left', nextTurn };
+                    cart = { id: cartId, position, orientation: 'left', nextTurn };
                     break;
                 case '^':
-                    cart = { position, orientation: 'up', nextTurn };
+                    cart = { id: cartId, position, orientation: 'up', nextTurn };
                     break;
                 case '>':
-                    cart = { position, orientation: 'right', nextTurn };
+                    cart = { id: cartId, position, orientation: 'right', nextTurn };
                     break;
                 case 'v':
-                    cart = { position, orientation: 'down', nextTurn };
+                    cart = { id: cartId, position, orientation: 'down', nextTurn };
                     break;
                 default:
                     // do nothing
             }
 
-            if (cart) carts.push(cart);
+            if (cart) {
+                cartId++;
+                carts.push(cart);
+            }
+
             if (road) parsedRow.push(road);
             colId++;
         }
@@ -250,7 +259,52 @@ function calculateFirstTask(data) {
 }
 
 function calculateSecondTask(data) {
+    const { map, carts: oldCarts } = data;
+    let carts = JSON.parse(JSON.stringify(oldCarts));
+    let currentCarts = carts;
+    let iter = 0;
+    while (currentCarts.length > 1) {
+        // sort carts on each iteration, so that they behave y first, x second
+        currentCarts.sort((a, b) => {
+            if (a.position.y === b.position.y) return a.position.x - b.position.x;
 
+            return a.position.y - b.position.y;
+        });
+
+        const cartsToBeRemoved = [];
+        for (cart of currentCarts) {
+            const nextPosition = getNextPosition(cart.position, cart.orientation);
+            
+            // check crash
+            const otherCart = currentCarts.find(cart => cart.position.x === nextPosition.x && cart.position.y === nextPosition.y);
+            if (otherCart) {
+                cartsToBeRemoved.push(cart);
+                cartsToBeRemoved.push(otherCart);
+            }
+            
+            const nextField = map[nextPosition.y][nextPosition.x];
+
+            // cart.nextTurn changed inside
+            const nextOrientation = getNextOrientation(cart, nextField)
+            cart.position = nextPosition,
+            cart.orientation = nextOrientation;
+        }
+
+        if (currentCarts.length === 1) {
+            console.log('last cart left, stopping');
+            stop = true;
+        }
+
+        if (cartsToBeRemoved.length > 0) {
+            for (removedCart of cartsToBeRemoved) {
+                currentCarts = currentCarts.filter(cart => cart.id !== removedCart.id);
+            }
+        }
+
+        iter++;
+    }
+
+    return currentCarts;
 }
 
 function getNextPosition(position, orientation) {
