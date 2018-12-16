@@ -4,11 +4,7 @@ const dir = __dirname;
 fileToArray(dir, 'input').then(input => {
     const parsedInput = parseInput(input);
 
-    const firstResult = calculateFirstTask(parsedInput);
-    console.log('first result: ', firstResult);
-
-    // const secondResult = calculateSecondTask(parsedInput);
-    // console.log('second result: ', secondResult);
+    calculateTasks(parsedInput);
 });
 
 const REGISTER_RE = /\[(.*)\]/;
@@ -105,13 +101,30 @@ function eqrr(a, b, c) {
     registers[c] = (registers[a] === registers[b] ? 1 : 0);
 }
 
+const opcodeFuncMap = {
+    '0': setr,
+    '1': eqrr,
+    '2': gtri,
+    '3': muli,
+    '4': eqir,
+    '5': borr,
+    '6': bori,
+    '7': mulr,
+    '8': gtrr,
+    '9': seti,
+    '10': banr,
+    '11': eqri,
+    '12': addr,
+    '13': gtir,
+    '14': addi,
+    '15': bani,
+};
 
-
-function calculateFirstTask(data) {
+function calculateTasks(data) {
     // for each entry iterate over each function and verify if function result is same as input result
     // if yes - increment function usage for given op-code
     const opCodes = {};
-    let result = 0;
+    let firstResult = 0;
     const funcKeys = Object.keys(functions);
     for (let i = 0; i <= 15; i++) {
         opCodes[i] = {};
@@ -140,14 +153,25 @@ function calculateFirstTask(data) {
         }
 
         if (matching >= 3) {
-            result++;
+            firstResult++;
         }
     }
 
+    console.log('first result: ', firstResult);
     // console.log(opCodes);
-    return result;
-}
 
-function calculateSecondTask(data) {
+    // 2nd task
+    fileToArray(dir, 'input2').then(operations => {
+        registers = [0, 0, 0, 0];
 
+        for (row of operations) {
+            const [operCode, a, b, c] = row.split(' ').map(Number);
+
+            const func = opcodeFuncMap[operCode];
+
+            func(a, b, c);
+        }
+
+        console.log(registers);
+    });
 }
