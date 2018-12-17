@@ -162,7 +162,7 @@ function calculateFirstTask(data) {
             if (player.hp <= 0) continue;
 
             // identify if there are targets:
-            const enemies = players.filter(el => (el.type === player.enemyType) && el.hp > 0);
+            const enemies = players.filter(el => (el.type === player.enemyType) && el.hp > 0).sort(readingOrderSort);
 
             // no enemies, end
             if (enemies.length === 0) {
@@ -182,33 +182,43 @@ function calculateFirstTask(data) {
             // move if nobody is in range
             if (!inRange) {
                 // check each enemy if reachable:
-                const tmpMap = {};
+                const myMap = floodFill(map, player.position);
+                const closestEnemy = { ptr: null, distance: 10000 };
                 for (enemy of enemies) {
                     if (enemy.hp <= 0) continue;
 
-                    tmpMap[enemy.id] = floodFill(map, enemy.position, player.position);
+                    const enemyPos = enemy.position;
+                    const enemyNeighbouringCoords = [
+                        { x: enemyPos.x, y: enemyPos.y - 1}, { x: enemyPos.x - 1, y: enemyPos.y },
+                        { x: enemyPos.x + 1, y: enemyPos.y }, { x: enemyPos.x, y: enemyPos.y + 1}
+                    ];
+                    enemyNeighbouringCoords.forEach(pos => {
+                        const dist = myMap[pos.y][pos.x];
+                        if (dist < closestEnemy.distance) {
+                            closestEnemy.ptr = enemy;
+                            closestEnemy.distance = dist;
+                        }
+                    });
                 }
+
+                // no enemy reachable, skip player
+                if (!closestEnemy.ptr) continue;
+
+                const enemyMap = floodFill(map, closestEnemy.ptr.position);
 
                 // get closest reachable enemy:
                 const closest = {
                     len: 10000000,
-                    id: 0,
                 };
-                const enemyIds = Object.keys(tmpMap);
-                for (id of enemyIds) {
-                    const enemyMap = tmpMap[id];
-
-                    neighbouringCoords.forEach(coord => {
-                        const field = enemyMap[coord.y][coord.x];
-                        if (Number.isInteger(field)) {
-                            if (field < closest.len) {
-                                closest.len = field;
-                                closest.id = id;
-                                closest.pos = { x: coord.x, y: coord.y };
-                            }
+                neighbouringCoords.forEach(coord => {
+                    const field = enemyMap[coord.y][coord.x];
+                    if (Number.isInteger(field)) {
+                        if (field < closest.len) {
+                            closest.len = field;
+                            closest.pos = { x: coord.x, y: coord.y };
                         }
-                    });
-                }
+                    }
+                });
 
                 // do move
                 if (closest.pos) {
@@ -252,7 +262,17 @@ function calculateFirstTask(data) {
             }
         }
 
-        // drawState(map);
+        // slow down loop
+        /*
+        let j = 0;
+        for (let i = 0; i < 20e7; i++) {
+            j++;
+        }
+        // */
+
+        console.log('\033[2J');
+        console.log({ iter });
+        drawState(map);
 
         if (fullRound) {
             iter++;
@@ -272,32 +292,7 @@ function calculateSecondTask(data) {
 
 }
 
-// remove me
-function calcNewState(map, players) {
-    const newState = [];
-    for (row of map) {
-        const newRow = [];
-        for (el of row) {
-            if (el.type === fieldType.mountain) {
-                newRow.push({ ...el })
-            } else {
-                newRow.push({ type: fieldType.plain });
-            }
-        }
-        newState.push(newRow);
-    }
-    // add current player state
-    players.forEach(player => {
-        // do not add dead players
-        if (player.hp <= 0) return;
-
-        const { x, y } = player.position;
-        newState[y][x] = { type: player.type, id: player.id };
-    });
-    return newState;
-}
-
-function floodFill(map, src, target) {
+function floodFill(map, src) {
     // prepare result
     const tmpMap = [];
     for (row of map) {
@@ -311,11 +306,10 @@ function floodFill(map, src, target) {
         }
         tmpMap.push(tmpRow);
     }
-    tmpMap[target.y][target.x] = 'T';
 
     // perform flood fill
     tmpMap[src.y][src.x] = 0;
-    performFloodFill(tmpMap, src, target);
+    performFloodFill(tmpMap, src);
 
     // console.log('test map:');
     // drawTmpMap(tmpMap);
@@ -323,34 +317,33 @@ function floodFill(map, src, target) {
     return tmpMap;
 }
 
-function performFloodFill(result, position, target) {
+function performFloodFill(result, position) {
     // get list of valid neighbours:
-    const { filteredNeighbours: filNeight, isTarget: initialIsTarget } = getFilteredNeighboursArray(position, target, result);
-    let currentPositions = filNeight;
+    let currentPositions = getFilteredNeighboursArray(position, result);;
     let value = 1;
 
-    let targetReached = initialIsTarget;
-    while (!targetReached && currentPositions.length > 0) {
+    while (currentPositions.length > 0) {
         // set each to value
         currentPositions.forEach(el => result[el.y][el.x] = value);
         value++;
 
         let newPositions = [];
         for (el of currentPositions) {
-            const { filteredNeighbours, isTarget } = getFilteredNeighboursArray(el, target, result);
-            newPositions = newPositions.concat(filteredNeighbours);
-
-            if (isTarget) {
-                targetReached = true;
-                break;
-            }
+            newPositions = newPositions.concat(getFilteredNeighboursArray(el, result));
         }
 
-        currentPositions = newPositions;
+        // filter out duplicates
+        const newPositionsSet = new Set(newPositions.map(pos => `${pos.x},${pos.y}`));
+
+        currentPositions = Array.from(newPositionsSet).map(el =>  {
+            const [x, y] = el.split(',').map(Number);
+
+            return { x, y };
+        });
     }
 }
 
-function getFilteredNeighboursArray(position, target, current) {
+function getFilteredNeighboursArray(position, current) {
     const neighbours = [];
     neighbours.push({ x: position.x - 1, y: position.y });
     neighbours.push({ x: position.x, y: position.y - 1 });
@@ -358,11 +351,7 @@ function getFilteredNeighboursArray(position, target, current) {
     neighbours.push({ x: position.x, y: position.y + 1 });
 
     // exclude impassable or already "valued" fields
-    filteredNeighbours = neighbours.filter(pos => current[pos.y][pos.x] === '.');
-
-    const isTarget = neighbours.some(pos => pos.x === target.x && pos.y === target.y);
-
-    return { filteredNeighbours, isTarget };
+    return neighbours.filter(pos => current[pos.y][pos.x] === '.');
 }
 
 function readingOrderSort(a, b) {
