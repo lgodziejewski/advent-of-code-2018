@@ -40,7 +40,7 @@ const testMove = {
     file: 'test-move',
 }
 
-const usedData = testData0;
+const usedData = myData;
 
 const playerType = {
     elf: 'elf',
@@ -103,7 +103,6 @@ function parseInput(input) {
             // get field data
             const fieldObject = {
                 type: mapDefaults[char],
-                position,
             };
             parsedRow.push(fieldObject);
 
@@ -128,24 +127,35 @@ function parseInput(input) {
     // add players to map
     for (player of players) {
         const { x, y } = player.position;
-        map[y][x] = { type: player.type, position: { x, y } };
+        map[y][x] = { type: player.type, id: player.id };
     }
 
     return { map, players };
 }
 
 function calculateFirstTask(data) {
-    let { map, players } = data;
+    const { map: initialMap, players } = data;
 
-    drawState(map);
+    let map = initialMap;
+    // drawState(map);
 
     let end = false;
     let iter = 1;
 
     while(!end) {
+        // console.log('---', { iter });
         // sort players "in reading order"
         players.sort(readingOrderSort);
 
+        const goblinsAlive = players.filter(el => el.type === playerType.goblin && el.hp > 0).length;
+        const elfsAlive = players.filter(el => el.type === playerType.elf && el.hp > 0).length;
+
+        if (goblinsAlive <= 0 || elfsAlive <= 0) {
+            end = true;
+            break;
+        }
+
+        let fullRound = true;
         // determine next step for each
         for (player of players) {
             // dead, do nothing
@@ -156,7 +166,7 @@ function calculateFirstTask(data) {
 
             // no enemies, end
             if (enemies.length === 0) {
-                end = true;
+                fullRound = false;
                 break;
             }
 
@@ -174,6 +184,8 @@ function calculateFirstTask(data) {
                 // check each enemy if reachable:
                 const tmpMap = {};
                 for (enemy of enemies) {
+                    if (enemy.hp <= 0) continue;
+
                     tmpMap[enemy.id] = floodFill(map, enemy.position, player.position);
                 }
 
@@ -200,24 +212,59 @@ function calculateFirstTask(data) {
 
                 // do move
                 if (closest.pos) {
-                     player.position = { ...closest.pos };
+                    // console.log(`player ${player.id} moves to position: `, { position: closest.pos });
+                    player.position = { ...closest.pos };
+                    map = calcNewState(map, players);
+                    // drawState(map);
                 }
             }
 
-            // TODO attack
+            // get new neighbouring positions
+            const myNewPos = player.position;
+            const newNeighbouringCoords = [
+                { x: myNewPos.x, y: myNewPos.y - 1}, { x: myNewPos.x - 1, y: myNewPos.y },
+                { x: myNewPos.x + 1, y: myNewPos.y }, { x: myNewPos.x, y: myNewPos.y + 1}
+            ];
 
+            // attack - get enemy in range, if any
+            const enemiesInRange = [];
+            newNeighbouringCoords.forEach(coord => {
+                if (map[coord.y][coord.x].type === player.enemyType) {
+                    const enemyId = map[coord.y][coord.x].id;
+                    const enemy = enemies.find(el => el.id === enemyId);
+                    enemiesInRange.push(enemy);
+                }
+            });
 
-            // calc new state - sb could have moved or be dead
-            map = calcNewState(map, players);
+            if (enemiesInRange.length > 0) {
+                enemiesInRange.sort((a, b) => a.hp - b.hp);
+                const enemy = enemiesInRange[0];
+
+                // attack:
+                enemy.hp -= 3;
+                // console.log(`player ${player.id} attacks enemy ${enemyId}. Hp left: ${enemy.hp}`);
+
+                if (enemy.hp <= 0) {
+                    // recalc state, enemy died
+                    map = calcNewState(map, players);
+                }
+            }
         }
 
-        console.log({ iter });
-        drawState(map);
+        // drawState(map);
 
-        iter++;
-        
-        if (iter > 5) break;
+        if (fullRound) {
+            iter++;
+        }
     }
+
+    const fullRounds = iter - 1;
+    const alivePlayers = players.filter(el => el.hp > 0);
+    const hpSum = alivePlayers.reduce((acc, el) => acc + el.hp, 0);
+    const result = fullRounds * hpSum;
+    console.log({ fullRounds, hpSum });
+    console.log('result: ', result);
+    console.log('expected result: ', usedData.result);
 }
 
 function calculateSecondTask(data) {
@@ -232,19 +279,19 @@ function calcNewState(map, players) {
             if (el.type === fieldType.mountain) {
                 newRow.push({ ...el })
             } else {
-                newRow.push({ type: fieldType.plain, position: el.position });
+                newRow.push({ type: fieldType.plain });
             }
         }
         newState.push(newRow);
     }
     // add current player state
-    for (player of players) {
+    players.forEach(player => {
         // do not add dead players
-        if (player.hp <= 0) continue;
+        if (player.hp <= 0) return;
 
         const { x, y } = player.position;
-        newState[y][x] = { type: player.type, position: { x, y } };
-    }
+        newState[y][x] = { type: player.type, id: player.id };
+    });
     return newState;
 }
 
@@ -266,7 +313,7 @@ function floodFill(map, src, target) {
 
     // perform flood fill
     tmpMap[src.y][src.x] = 0;
-    performFloodFill(tmpMap, src, 1);
+    performFloodFill(tmpMap, src, target);
 
     // console.log('test map:');
     // drawTmpMap(tmpMap);
@@ -274,25 +321,34 @@ function floodFill(map, src, target) {
     return tmpMap;
 }
 
-function performFloodFill(result, position, value) {
+function performFloodFill(result, position, target) {
     // get list of valid neighbours:
-    let currentPositions = getFilteredNeighboursArray(position, result);
+    const { filteredNeighbours: filNeight, isTarget: initialIsTarget } = getFilteredNeighboursArray(position, target, result);
+    let currentPositions = filNeight;
+    let value = 1;
 
-    while (currentPositions.length > 0) {
+    let targetReached = initialIsTarget;
+    while (!targetReached && currentPositions.length > 0) {
         // set each to value
         currentPositions.forEach(el => result[el.y][el.x] = value);
         value++;
 
         let newPositions = [];
-        currentPositions.forEach(el => {
-            newPositions = newPositions.concat(getFilteredNeighboursArray(el, result));
-        });
+        for (el of currentPositions) {
+            const { filteredNeighbours, isTarget } = getFilteredNeighboursArray(el, target, result);
+            newPositions = newPositions.concat(filteredNeighbours);
+
+            if (isTarget) {
+                targetReached = true;
+                break;
+            }
+        }
 
         currentPositions = newPositions;
     }
 }
 
-function getFilteredNeighboursArray(position, current) {
+function getFilteredNeighboursArray(position, target, current) {
     const neighbours = [];
     neighbours.push({ x: position.x - 1, y: position.y });
     neighbours.push({ x: position.x, y: position.y - 1 });
@@ -302,7 +358,9 @@ function getFilteredNeighboursArray(position, current) {
     // exclude impassable or already "valued" fields
     filteredNeighbours = neighbours.filter(pos => current[pos.y][pos.x] === '.');
 
-    return filteredNeighbours;
+    const isTarget = neighbours.some(pos => pos.x === target.x && pos.y === target.y);
+
+    return { filteredNeighbours, isTarget };
 }
 
 function readingOrderSort(a, b) {
