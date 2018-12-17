@@ -57,7 +57,7 @@ const playerDefaults = {
         enemyType: playerType.goblin,
         type: playerType.elf,
         hp: 200,
-        attack: 3,
+        attack: 17,
     },
     G: {
         enemyType: playerType.elf,
@@ -79,11 +79,7 @@ const mapDefaults = {
 fileToArray(dir, usedData.file).then(input => {
     const parsedInput = parseInput(input);
 
-    const firstResult = calculateFirstTask(parsedInput);
-    console.log('first result: ', firstResult);
-
-    const secondResult = calculateSecondTask(parsedInput);
-    console.log('second result: ', secondResult);
+    calculateFirstTask(parsedInput);
 });
 
 function parseInput(input) {
@@ -138,12 +134,12 @@ function calculateFirstTask(data) {
 
     let map = initialMap;
     // drawState(map);
+    console.log('elves alive: ', players.filter(el => el.type === playerType.elf && el.hp > 0).length);
 
     let end = false;
     let iter = 1;
 
     while(!end) {
-        // console.log('---', { iter });
         // sort players "in reading order"
         players.sort(readingOrderSort);
 
@@ -183,7 +179,7 @@ function calculateFirstTask(data) {
             if (!inRange) {
                 // check each enemy if reachable:
                 const myMap = floodFill(map, player.position);
-                const closestEnemy = { ptr: null, distance: 10000 };
+                const closestEnemy = { ptr: null, distance: 10000, idx: 10 };
                 for (enemy of enemies) {
                     if (enemy.hp <= 0) continue;
 
@@ -192,10 +188,14 @@ function calculateFirstTask(data) {
                         { x: enemyPos.x, y: enemyPos.y - 1}, { x: enemyPos.x - 1, y: enemyPos.y },
                         { x: enemyPos.x + 1, y: enemyPos.y }, { x: enemyPos.x, y: enemyPos.y + 1}
                     ];
-                    enemyNeighbouringCoords.forEach(pos => {
+                    enemyNeighbouringCoords.forEach((pos, idx) => {
                         const dist = myMap[pos.y][pos.x];
-                        if (dist < closestEnemy.distance) {
+                        if (
+                            dist < closestEnemy.distance
+                            || (dist === closestEnemy.distance && idx < closestEnemy.coordIndex)
+                        ) {
                             closestEnemy.ptr = enemy;
+                            closestEnemy.coordIndex = idx;
                             closestEnemy.distance = dist;
                         }
                     });
@@ -252,7 +252,7 @@ function calculateFirstTask(data) {
                 const enemy = enemiesInRange[0];
 
                 // attack:
-                enemy.hp -= 3;
+                enemy.hp -= player.attack;
                 // console.log(`player ${player.id} attacks enemy ${enemyId}. Hp left: ${enemy.hp}`);
 
                 if (enemy.hp <= 0) {
@@ -265,14 +265,14 @@ function calculateFirstTask(data) {
         // slow down loop
         /*
         let j = 0;
-        for (let i = 0; i < 20e7; i++) {
+        for (let i = 0; i < 10e6; i++) {
             j++;
         }
         // */
 
-        console.log('\033[2J');
-        console.log({ iter });
-        drawState(map);
+        // console.log('\033[2J');
+        // console.log({ iter });
+        // drawState(map);
 
         if (fullRound) {
             iter++;
@@ -284,12 +284,9 @@ function calculateFirstTask(data) {
     const hpSum = alivePlayers.reduce((acc, el) => acc + el.hp, 0);
     const result = fullRounds * hpSum;
     console.log({ fullRounds, hpSum });
+    console.log('elves alive: ', players.filter(el => el.type === playerType.elf && el.hp > 0).length);
     console.log('result: ', result);
     console.log('expected result: ', usedData.result);
-}
-
-function calculateSecondTask(data) {
-
 }
 
 function floodFill(map, src) {
