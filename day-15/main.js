@@ -213,8 +213,9 @@ function calculateFirstTask(data) {
                 // do move
                 if (closest.pos) {
                     // console.log(`player ${player.id} moves to position: `, { position: closest.pos });
+                    map[player.position.y][player.position.x] = { type: fieldType.plain };
                     player.position = { ...closest.pos };
-                    map = calcNewState(map, players);
+                    map[player.position.y][player.position.x] = { type: player.type, id: player.id };
                     // drawState(map);
                 }
             }
@@ -246,7 +247,7 @@ function calculateFirstTask(data) {
 
                 if (enemy.hp <= 0) {
                     // recalc state, enemy died
-                    map = calcNewState(map, players);
+                    map[enemy.position.y][enemy.position.x] = { type: fieldType.plain };
                 }
             }
         }
@@ -271,6 +272,7 @@ function calculateSecondTask(data) {
 
 }
 
+// remove me
 function calcNewState(map, players) {
     const newState = [];
     for (row of map) {
